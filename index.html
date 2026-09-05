@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>学生証</title>
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="学生証">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231e3a8a'/%3E%3Ctext x='50' y='66' font-size='54' text-anchor='middle' fill='white' font-family='sans-serif'%3E%F0%9F%8E%AB%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f8; --ink:#1c2333; --sub:#5b6377; --line:#dde2ef;
+  --accent:#1e3a8a; --accent2:#173169; --gold:#c9a24b; --card:#fff;
+  --danger:#c0392b; --ok:#1f8a4c; --warn:#b8860b;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;line-height:1.6;padding-bottom:40px}
+.wrap{max-width:480px;margin:0 auto;padding:20px 16px 60px}
+.topbar{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:18px 16px;text-align:center;font-weight:900;font-size:20px;letter-spacing:.05em;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.topbar small{display:block;font-weight:500;font-size:13px;opacity:.85;margin-top:2px}
+h2{font-size:17px;margin:0 0 12px}
+.card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 2px 10px rgba(20,30,60,.08);margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--sub);margin-bottom:5px}
+.field input[type=text],.field input[type=password]{width:100%;padding:11px 12px;font-size:16px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcff;font-family:inherit}
+.field input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+.hint{font-size:12px;color:var(--sub);margin-top:4px}
+.photo-row{display:flex;align-items:center;gap:14px}
+.photo-preview{width:84px;height:108px;border-radius:10px;background:#e6e9f2 center/cover no-repeat;border:1.5px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:11px;text-align:center}
+.btn{appearance:none;border:none;border-radius:12px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:100%}
+.btn-primary:disabled{opacity:.55}
+.btn-line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+.btn-sm{padding:8px 12px;font-size:13px;border-radius:9px}
+.btn-ok{background:var(--ok);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-gray{background:#eef0f5;color:var(--ink)}
+.btn-block{width:100%;margin-top:10px}
+.err{background:#fdecea;color:var(--danger);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px;font-weight:700}
+.note{background:#fff7e6;border:1px solid #f1dfa8;border-radius:12px;padding:14px;font-size:14px;color:#6b5416}
+.center{text-align:center}
+.muted{color:var(--sub);font-size:13px}
+
+/* 学生証カード */
+.idcard{border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(20,30,60,.22);background:#fff;position:relative;border:1px solid #e2e6f0}
+.idcard .band{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.idcard .band .school{font-weight:900;font-size:15px}
+.idcard .band .tag{font-size:11px;letter-spacing:.15em;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:20px}
+.idcard .body{display:flex;gap:16px;padding:18px 16px}
+.idcard .photo{width:96px;height:124px;border-radius:10px;object-fit:cover;background:#eceff5;border:2px solid var(--gold);flex:none}
+.idcard .info{flex:1;min-width:0}
+.idcard .name{font-size:22px;font-weight:900;line-height:1.3;word-break:break-word}
+.idcard .grade{font-size:14px;color:var(--sub);margin-top:2px}
+.idcard .foot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 16px;font-size:12px;color:var(--sub);border-top:1px dashed var(--line);margin:0 16px}
+.idcard .no{font-weight:800;color:var(--ink);letter-spacing:.04em}
+
+.status-pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.pill-pending{background:#fff3d6;color:#8a6300}
+.pill-rejected{background:#fdecea;color:var(--danger)}
+.pill-revoked{background:#eceef3;color:var(--sub)}
+
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:13px;cursor:pointer;color:var(--sub)}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.list-item{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+.list-item img{width:48px;height:62px;object-fit:cover;border-radius:8px;background:#eceff5;flex:none}
+.list-item .meta{flex:1;min-width:0}
+.list-item .meta .n{font-weight:800;font-size:15px}
+.list-item .meta .s{font-size:12px;color:var(--sub)}
+.list-item .actions{display:flex;flex-direction:column;gap:6px}
+.badge{background:var(--danger);color:#fff;font-size:11px;border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.footer-link{display:block;text-align:center;margin-top:22px;font-size:12px;color:var(--sub);text-decoration:none}
+#qrcanvas{display:flex;justify-content:center;margin:12px auto}
+.url-box{font-size:12px;word-break:break-all;background:#f4f6fb;border-radius:8px;padding:8px 10px;color:var(--sub);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="topbar" id="topbar">学生証<small>デジタル学生証アプリ</small></div>
+<div class="wrap" id="app">読み込み中…</div>
+
+<script>
+const SUPABASE_URL = "https://glxszbwsvembyygocekp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseHN6YndzdmVtYnl5Z29jZWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDA5MzEsImV4cCI6MjA5NzE3NjkzMX0.Me73xDBFtOsNZ6ZRZZH8TNeXfwpiYvPBlplh4kRPsds";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+
+let DEVICE_ID = localStorage.getItem('gks_device_id');
+if(!DEVICE_ID){ DEVICE_ID = crypto.randomUUID(); localStorage.setItem('gks_device_id', DEVICE_ID); }
+
+const state = {
+  schoolName: '学生証発行校',
+  myStatus: undefined, // undefined=未取得 / null=未申請 / object
+  form: { name:'', grade:'', className:'', photo:'', passcode:'' },
+  submitting: false,
+  err: '',
+  admin: {
+    pass: sessionStorage.getItem('gks_admin_pass') || '',
+    list: null,
+    settingsForm: null,
+    tab: 'pending',
+    err: '',
+    busy: false
+  }
+};
+
+function app(){ return document.getElementById('app'); }
+function isAdminRoute(){ return location.hash.startsWith('#admin'); }
+
+async function boot(){
+  document.getElementById('topbar').innerHTML = isAdminRoute()
+    ? '学生証<small>先生用 管理画面</small>'
+    : '学生証<small>デジタル学生証アプリ</small>';
+  try{
+    const { data } = await sb.rpc('gakuseisho_school_name');
+    if(data) state.schoolName = data;
+  }catch(e){}
+  if(isAdminRoute()) await bootAdmin(); else await bootStudent();
+}
+
+/* ========== 生徒側 ========== */
+
+async function bootStudent(){
+  render();
+  try{
+    const { data, error } = await sb.rpc('gakuseisho_my_status', { p_device_id: DEVICE_ID });
+    if(error) throw error;
+    state.myStatus = data;
+  }catch(e){
+    state.bootErr = (e && e.message) ? e.message : '通信に失敗しました。電波の良い場所でもう一度開いてください。';
+  }
+  render();
+}
+
+function onPhotoInput(evt){
+  const file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 300, maxH = 400;
+      const scale = Math.min(maxW/img.width, maxH/img.height, 1);
+      const w = Math.max(1, Math.round(img.width*scale)), h = Math.max(1, Math.round(img.height*scale));
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      state.form.photo = c.toDataURL('image/jpeg', 0.85);
+      render();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function onFormInput(key, val){ state.form[key] = val; }
+
+async function submitApply(){
+  const f = state.form;
+  if(!f.name || !f.name.trim()){ state.err = '名前を入力してください。'; render(); return; }
+  if(!f.passcode || !f.passcode.trim()){ state.err = '先生から聞いた合言葉を入力してください。'; render(); return; }
+  state.submitting = true; state.err=''; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_apply', {
+      p_device_id: DEVICE_ID, p_name: f.name.trim(), p_grade: f.grade.trim(),
+      p_class: f.className.trim(), p_photo: f.photo || null, p_passcode: f.passcode.trim()
+    });
+    if(error) throw error;
+    const { data } = await sb.rpc('gakuseisho_my_status', { p_device_id: DEVICE_ID });
+    state.myStatus = data;
+  }catch(e){
+    state.err = (e && e.message) ? e.message : '申請に失敗しました。';
+  }
+  state.submitting = false;
+  render();
+}
+
+function retryApply(){ state.myStatus = null; state.err=''; render(); }
+
+function viewApplyForm(){
+  const f = state.form;
+  return `
+  <div class="card">
+    <h2>学生証の申請</h2>
+    <p class="muted">${esc(state.schoolName)} の学生証を申請します。先生に教えてもらった合言葉が必要です。</p>
+    ${state.err ? `<div class="err">${esc(state.err)}</div>` : ''}
+    <div class="field">
+      <label>名前</label>
+      <input type="text" value="${esc(f.name)}" oninput="onFormInput('name',this.value)" placeholder="やまだ　たろう">
+    </div>
+    <div class="field">
+      <label>学年</label>
+      <input type="text" value="${esc(f.grade)}" oninput="onFormInput('grade',this.value)" placeholder="例）3年">
+    </div>
+    <div class="field">
+      <label>組・クラス</label>
+      <input type="text" value="${esc(f.className)}" oninput="onFormInput('className',this.value)" placeholder="例）1組 / さくら学級">
+    </div>
+    <div class="field">
+      <label>写真（任意）</label>
+      <div class="photo-row">
+        <div class="photo-preview" style="${f.photo?`background-image:url('${f.photo}')`:''}">${f.photo?'':'写真'}</div>
+        <input type="file" accept="image/*" capture="user" onchange="onPhotoInput(event)">
+      </div>
+      <div class="hint">なくても申請できます。あとから先生に相談してください。</div>
+    </div>
+    <div class="field">
+      <label>合言葉</label>
+      <input type="password" value="${esc(f.passcode)}" oninput="onFormInput('passcode',this.value)" placeholder="先生から聞いた合言葉">
+    </div>
+    <button class="btn btn-primary" ${state.submitting?'disabled':''} onclick="submitApply()">${state.submitting?'送信中…':'申請する'}</button>
+  </div>`;
+}
+
+function viewPendingCard(){
+  const m = state.myStatus;
+  return `
+  <div class="card center">
+    <div class="photo-preview" style="width:100px;height:128px;margin:0 auto 14px;${m.photo?`background-image:url('${m.photo}')`:''}">${m.photo?'':'写真'}</div>
+    <h2 style="margin-bottom:6px">${esc(m.name)}</h2>
+    <p class="muted" style="margin:0 0 14px">${esc(m.grade||'')} ${esc(m.class_name||'')}</p>
+    <span class="status-pill pill-pending">承認待ち</span>
+    <p class="muted" style="margin-top:14px">先生が承認すると、この画面が学生証に切り替わります。</p>
+    <button class="btn btn-line btn-block" onclick="bootStudent()">最新の状態を確認</button>
+  </div>`;
+}
+
+function viewRejected(){
+  const m = state.myStatus;
+  return `
+  <div class="card center">
+    <span class="status-pill pill-rejected">却下されました</span>
+    <p class="muted" style="margin-top:14px">内容を先生に確認してから、もう一度申請してください。</p>
+    <button class="btn btn-primary btn-block" onclick="retryApply()">もう一度申請する</button>
+  </div>`;
+}
+
+function viewRevoked(){
+  return `
+  <div class="card center">
+    <span class="status-pill pill-revoked">無効になりました</span>
+    <p class="muted" style="margin-top:14px">この学生証は使えません。心当たりがなければ先生にお問い合わせください。</p>
+  </div>`;
+}
+
+function viewIdCard(){
+  const m = state.myStatus;
+  return `
+  <div class="idcard">
+    <div class="band"><span class="school">${esc(state.schoolName)}</span><span class="tag">STUDENT ID</span></div>
+    <div class="body">
+      ${m.photo ? `<img class="photo" src="${m.photo}">` : `<div class="photo" style="display:flex;align-items:center;justify-content:center;color:#9aa1b5;font-size:12px">写真なし</div>`}
+      <div class="info">
+        <div class="name">${esc(m.name)}</div>
+        <div class="grade">${esc(m.grade||'')} ${esc(m.class_name||'')}</div>
+      </div>
+    </div>
+    <div class="foot">
+      <span>発行日 ${fmtDate(m.approved_at)}</span>
+      <span class="no">No. ${m.student_no ?? '-'}</span>
+    </div>
+  </div>
+  <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。</p>`;
+}
+
+function render(){
+  if(isAdminRoute()){ renderAdmin(); return; }
+  let html = '';
+  if(state.myStatus === undefined){
+    html = state.bootErr
+      ? `<div class="card center"><div class="err">${esc(state.bootErr)}</div><button class="btn btn-line btn-block" onclick="bootStudent()">もう一度試す</button></div>`
+      : `<div class="card center muted">読み込み中…</div>`;
+  } else if(state.myStatus === null){
+    html = viewApplyForm();
+  } else {
+    const st = state.myStatus.status;
+    if(st === 'pending') html = viewPendingCard();
+    else if(st === 'approved') html = viewIdCard();
+    else if(st === 'rejected') html = viewRejected();
+    else if(st === 'revoked') html = viewRevoked();
+  }
+  html += `<a class="footer-link" href="#admin">先生用 管理画面はこちら</a>`;
+  app().innerHTML = html;
+}
+
+/* ========== 先生用 管理画面 ========== */
+
+async function bootAdmin(){
+  if(!state.admin.pass){ render(); return; }
+  await loadAdminList();
+}
+
+function adminLoginInput(val){ state.admin._pass = val; }
+
+async function adminLogin(){
+  const pass = state.admin._pass || '';
+  state.admin.err=''; state.admin.busy=true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_list', { p_admin_pass: pass });
+    if(error) throw error;
+    state.admin.pass = pass;
+    sessionStorage.setItem('gks_admin_pass', pass);
+    await loadAdminList();
+    return;
+  }catch(e){
+    state.admin.err = 'パスワードが違います。';
+  }
+  state.admin.busy=false;
+  render();
+}
+
+function adminLogout(){
+  state.admin.pass=''; state.admin.list=null; state.admin.settingsForm=null;
+  sessionStorage.removeItem('gks_admin_pass');
+  render();
+}
+
+async function loadAdminList(){
+  state.admin.busy = true; render();
+  try{
+    const { data, error } = await sb.rpc('gakuseisho_admin_list', { p_admin_pass: state.admin.pass });
+    if(error) throw error;
+    state.admin.list = data || [];
+    state.admin.err='';
+  }catch(e){
+    state.admin.err = 'パスワードが違います。もう一度ログインしてください。';
+    adminLogout();
+    return;
+  }
+  state.admin.busy = false;
+  render();
+}
+
+async function adminApprove(id){
+  state.admin.busy = true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_approve', { p_admin_pass: state.admin.pass, p_id: id });
+    if(error) throw error;
+  }catch(e){ alert('承認に失敗しました: ' + (e.message||e)); }
+  await loadAdminList();
+}
+
+async function adminReject(id){
+  if(!confirm('この申請を却下しますか？')) return;
+  state.admin.busy = true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_reject', { p_admin_pass: state.admin.pass, p_id: id });
+    if(error) throw error;
+  }catch(e){ alert('却下に失敗しました: ' + (e.message||e)); }
+  await loadAdminList();
+}
+
+async function adminRevoke(id){
+  if(!confirm('この学生証を無効にしますか？（卒業・転校など）')) return;
+  state.admin.busy = true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_revoke', { p_admin_pass: state.admin.pass, p_id: id });
+    if(error) throw error;
+  }catch(e){ alert('操作に失敗しました: ' + (e.message||e)); }
+  await loadAdminList();
+}
+
+function adminSetTab(tab){ state.admin.tab = tab; render(); if(tab==='settings') loadSettingsIfNeeded(); if(tab==='qr') drawQrSoon(); }
+
+async function loadSettingsIfNeeded(){
+  if(state.admin.settingsForm) return;
+  try{
+    const { data, error } = await sb.rpc('gakuseisho_admin_get_settings', { p_admin_pass: state.admin.pass });
+    if(error) throw error;
+    state.admin.settingsForm = { school_name: data.school_name, apply_pass: data.apply_pass, new_admin_pass: '' };
+  }catch(e){}
+  render();
+  drawQrSoon();
+}
+
+function onSettingsInput(key, val){ state.admin.settingsForm[key] = val; }
+
+async function saveSettings(){
+  const f = state.admin.settingsForm;
+  state.admin.busy = true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_update_settings', {
+      p_admin_pass: state.admin.pass, p_school_name: f.school_name, p_apply_pass: f.apply_pass, p_new_admin_pass: f.new_admin_pass
+    });
+    if(error) throw error;
+    if(f.new_admin_pass && f.new_admin_pass.trim()){
+      state.admin.pass = f.new_admin_pass.trim();
+      sessionStorage.setItem('gks_admin_pass', state.admin.pass);
+    }
+    f.new_admin_pass = '';
+    const { data } = await sb.rpc('gakuseisho_school_name');
+    if(data) state.schoolName = data;
+    alert('設定を保存しました。');
+  }catch(e){ alert('保存に失敗しました: ' + (e.message||e)); }
+  state.admin.busy = false;
+  render();
+}
+
+function drawQrSoon(){
+  setTimeout(() => {
+    const c = document.getElementById('qrcanvas');
+    if(c && window.QRCode){
+      c.innerHTML = '';
+      new QRCode(c, { text: location.origin + location.pathname, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    }
+  }, 30);
+}
+
+function viewAdminLogin(){
+  return `
+  <div class="card">
+    <h2>先生用ログイン</h2>
+    ${state.admin.err ? `<div class="err">${esc(state.admin.err)}</div>` : ''}
+    <div class="field">
+      <label>管理者パスワード</label>
+      <input type="password" oninput="adminLoginInput(this.value)" onkeydown="if(event.key==='Enter')adminLogin()" placeholder="パスワード">
+    </div>
+    <button class="btn btn-primary btn-block" ${state.admin.busy?'disabled':''} onclick="adminLogin()">ログイン</button>
+    <p class="hint" style="margin-top:10px">初期パスワードは <b>sensei2026</b> です（設定タブで変更できます）。</p>
+    <a class="footer-link" href="#">生徒用の画面にもどる</a>
+  </div>`;
+}
+
+function studentCardMini(s){
+  const photo = s.photo ? `<img src="${s.photo}">` : `<img style="background:#eceff5">`;
+  return `${photo}<div class="meta"><div class="n">${esc(s.name)}</div><div class="s">${esc(s.grade||'')} ${esc(s.class_name||'')}・${fmtDate(s.created_at)}申請</div></div>`;
+}
+
+function viewAdminDash(){
+  const list = state.admin.list || [];
+  const pending = list.filter(s=>s.status==='pending');
+  const approved = list.filter(s=>s.status==='approved');
+  const others = list.filter(s=>s.status==='rejected'||s.status==='revoked');
+
+  let body = '';
+  if(state.admin.tab === 'pending'){
+    body = pending.length ? pending.map(s => `
+      <div class="list-item">
+        ${studentCardMini(s)}
+        <div class="actions">
+          <button class="btn btn-sm btn-ok" onclick="adminApprove('${s.id}')">承認</button>
+          <button class="btn btn-sm btn-danger" onclick="adminReject('${s.id}')">却下</button>
+        </div>
+      </div>`).join('') : `<p class="muted center">承認待ちの申請はありません。</p>`;
+  } else if(state.admin.tab === 'approved'){
+    body = approved.length ? approved.map(s => `
+      <div class="list-item">
+        ${studentCardMini(s)}
+        <div class="actions">
+          <span class="muted" style="font-size:12px;text-align:center">No.${s.student_no}</span>
+          <button class="btn btn-sm btn-gray" onclick="adminRevoke('${s.id}')">無効にする</button>
+        </div>
+      </div>`).join('') : `<p class="muted center">承認済みの生徒はいません。</p>`;
+  } else if(state.admin.tab === 'others'){
+    body = others.length ? others.map(s => `
+      <div class="list-item">
+        ${studentCardMini(s)}
+        <span class="status-pill ${s.status==='rejected'?'pill-rejected':'pill-revoked'}">${s.status==='rejected'?'却下':'無効'}</span>
+      </div>`).join('') : `<p class="muted center">対象はありません。</p>`;
+  } else if(state.admin.tab === 'qr'){
+    const url = location.origin + location.pathname;
+    body = `
+      <p class="muted center">生徒に配るQRコードです。読み取ると申請フォームが開きます。</p>
+      <div id="qrcanvas"></div>
+      <div class="url-box">${esc(url)}</div>`;
+  } else if(state.admin.tab === 'settings'){
+    const f = state.admin.settingsForm;
+    body = f ? `
+      <div class="field">
+        <label>学校名（学生証に表示されます）</label>
+        <input type="text" value="${esc(f.school_name)}" oninput="onSettingsInput('school_name',this.value)">
+      </div>
+      <div class="field">
+        <label>生徒申請用の合言葉</label>
+        <input type="text" value="${esc(f.apply_pass)}" oninput="onSettingsInput('apply_pass',this.value)">
+        <div class="hint">生徒がQRコードを読み取ったあとに入力する合言葉です。</div>
+      </div>
+      <div class="field">
+        <label>管理者パスワードを変更（空欄なら変更なし）</label>
+        <input type="password" value="${esc(f.new_admin_pass)}" oninput="onSettingsInput('new_admin_pass',this.value)" placeholder="新しいパスワード">
+      </div>
+      <button class="btn btn-primary btn-block" ${state.admin.busy?'disabled':''} onclick="saveSettings()">保存する</button>
+    ` : `<p class="muted center">読み込み中…</p>`;
+  }
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div class="muted">${esc(state.schoolName)}</div>
+    <button class="btn btn-sm btn-gray" onclick="adminLogout()">ログアウト</button>
+  </div>
+  <div class="tabs">
+    <button class="${state.admin.tab==='pending'?'on':''}" onclick="adminSetTab('pending')">承認待ち${pending.length?`<span class="badge">${pending.length}</span>`:''}</button>
+    <button class="${state.admin.tab==='approved'?'on':''}" onclick="adminSetTab('approved')">承認済み</button>
+  </div>
+  <div class="tabs">
+    <button class="${state.admin.tab==='others'?'on':''}" onclick="adminSetTab('others')">却下・無効</button>
+    <button class="${state.admin.tab==='qr'?'on':''}" onclick="adminSetTab('qr')">配布QR</button>
+    <button class="${state.admin.tab==='settings'?'on':''}" onclick="adminSetTab('settings')">設定</button>
+  </div>
+  <div class="card">${body}</div>
+  <a class="footer-link" href="#">生徒用の画面にもどる</a>`;
+}
+
+function renderAdmin(){
+  let html;
+  if(!state.admin.pass || !state.admin.list){
+    html = state.admin.pass ? `<div class="card center muted">読み込み中…</div>` : viewAdminLogin();
+  } else {
+    html = viewAdminDash();
+  }
+  app().innerHTML = html;
+}
+
+window.addEventListener('hashchange', boot);
+boot();
+</script>
+</body>
+</html>
