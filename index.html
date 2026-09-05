@@ -105,6 +105,9 @@ h2{font-size:17px;margin:0 0 12px}
 .footer-link{display:block;text-align:center;margin-top:22px;font-size:12px;color:var(--sub);text-decoration:none}
 #qrcanvas{display:flex;justify-content:center;margin:12px auto}
 .url-box{font-size:12px;word-break:break-all;background:#f4f6fb;border-radius:8px;padding:8px 10px;color:var(--sub);margin-top:8px}
+.passbox{margin-top:16px;text-align:center;background:#fff7e6;border:1.5px dashed #e3c274;border-radius:12px;padding:12px}
+.passbox-label{font-size:12px;color:#8a6300;font-weight:700}
+.passbox-value{font-size:22px;font-weight:900;letter-spacing:.08em;color:#6b5416;margin-top:2px;word-break:break-all}
 </style>
 </head>
 <body>
@@ -449,7 +452,7 @@ async function adminRevoke(id){
   await loadAdminList();
 }
 
-function adminSetTab(tab){ state.admin.tab = tab; render(); if(tab==='settings') loadSettingsIfNeeded(); if(tab==='qr') drawQrSoon(); }
+function adminSetTab(tab){ state.admin.tab = tab; render(); if(tab==='settings'||tab==='qr') loadSettingsIfNeeded(); if(tab==='qr') drawQrSoon(); }
 
 async function loadSettingsIfNeeded(){
   if(state.admin.settingsForm) return;
@@ -463,7 +466,7 @@ async function loadSettingsIfNeeded(){
     };
   }catch(e){}
   render();
-  drawQrSoon();
+  if(state.admin.tab === 'qr') drawQrSoon();
 }
 
 function onSettingsInput(key, val){ state.admin.settingsForm[key] = val; }
@@ -576,10 +579,15 @@ function viewAdminDash(){
       </div>`).join('') : `<p class="muted center">対象はありません。</p>`;
   } else if(state.admin.tab === 'qr'){
     const url = location.origin + location.pathname;
+    const pass = state.admin.settingsForm ? state.admin.settingsForm.apply_pass : null;
     body = `
-      <p class="muted center">生徒に配るQRコードです。読み取ると申請フォームが開きます。</p>
+      <p class="muted center">生徒に配るQRコードです。読み取ると申請フォームが開きます。<br>合言葉も一緒に伝わるよう、この画面ごと印刷・掲示してください。</p>
       <div id="qrcanvas"></div>
-      <div class="url-box">${esc(url)}</div>`;
+      <div class="url-box">${esc(url)}</div>
+      <div class="passbox">
+        <div class="passbox-label">合言葉</div>
+        <div class="passbox-value">${pass ? esc(pass) : '読み込み中…'}</div>
+      </div>`;
   } else if(state.admin.tab === 'settings'){
     const f = state.admin.settingsForm;
     body = f ? `
