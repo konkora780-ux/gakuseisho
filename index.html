@@ -29,7 +29,7 @@ h2{font-size:17px;margin:0 0 12px}
 .card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 2px 10px rgba(20,30,60,.08);margin-bottom:16px}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:13px;font-weight:700;color:var(--sub);margin-bottom:5px}
-.field input[type=text],.field input[type=password]{width:100%;padding:11px 12px;font-size:16px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcff;font-family:inherit}
+.field input[type=text],.field input[type=password],.field input[type=date],.field select{width:100%;padding:11px 12px;font-size:16px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcff;font-family:inherit}
 .field input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 .hint{font-size:12px;color:var(--sub);margin-top:4px}
 .photo-row{display:flex;align-items:center;gap:14px}
@@ -106,6 +106,11 @@ h2{font-size:17px;margin:0 0 12px}
 #qrcanvas{display:flex;justify-content:center;margin:12px auto}
 .url-box{font-size:12px;word-break:break-all;background:#f4f6fb;border-radius:8px;padding:8px 10px;color:var(--sub);margin-top:8px}
 .passbox{margin-top:16px;text-align:center;background:#fff7e6;border:1.5px dashed #e3c274;border-radius:12px;padding:12px}
+.classrow{display:flex;gap:10px}
+.classrow div{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub)}
+.classrow input{width:52px;padding:8px 6px;text-align:center;font-size:14px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit}
+.filterbar{display:flex;gap:8px;margin-bottom:12px}
+.filterbar select{flex:1;padding:9px 8px;font-size:13px;border:1.5px solid var(--line);border-radius:9px;background:#fbfcff;font-family:inherit;color:var(--ink)}
 .passbox-label{font-size:12px;color:#8a6300;font-weight:700}
 .passbox-value{font-size:22px;font-weight:900;letter-spacing:.08em;color:#6b5416;margin-top:2px;word-break:break-all}
 </style>
@@ -132,7 +137,7 @@ let DEVICE_ID = localStorage.getItem('gks_device_id');
 if(!DEVICE_ID){ DEVICE_ID = crypto.randomUUID(); localStorage.setItem('gks_device_id', DEVICE_ID); }
 
 const state = {
-  school: { name:'学生証発行校', address:'', phone:'', crest:null, principal:'' },
+  school: { name:'学生証発行校', address:'', phone:'', crest:null, principal:'', classes:[8,8,8] },
   myStatus: undefined, // undefined=未取得 / null=未申請 / object
   form: { name:'', grade:'', className:'', attendanceNo:'', department:'', birthdate:'', photo:'', passcode:'' },
   submitting: false,
@@ -142,6 +147,8 @@ const state = {
     list: null,
     settingsForm: null,
     tab: 'pending',
+    filterGrade: '',
+    filterClass: '',
     err: '',
     busy: false
   }
@@ -149,6 +156,12 @@ const state = {
 
 function app(){ return document.getElementById('app'); }
 function isAdminRoute(){ return location.hash.startsWith('#admin'); }
+function schoolFromInfo(data){
+  return {
+    name: data.name, address: data.address||'', phone: data.phone||'', crest: data.crest||null, principal: data.principal||'',
+    classes: [data.classes_grade1||8, data.classes_grade2||8, data.classes_grade3||8]
+  };
+}
 
 async function boot(){
   document.getElementById('topbar').innerHTML = isAdminRoute()
@@ -156,7 +169,7 @@ async function boot(){
     : '学生証<small>デジタル学生証アプリ</small>';
   try{
     const { data } = await sb.rpc('gakuseisho_school_info');
-    if(data) state.school = { name: data.name, address: data.address||'', phone: data.phone||'', crest: data.crest||null, principal: data.principal||'' };
+    if(data) state.school = schoolFromInfo(data);
   }catch(e){}
   if(isAdminRoute()) await bootAdmin(); else await bootStudent();
 }
@@ -196,6 +209,21 @@ function onPhotoInput(evt){
 }
 
 function onFormInput(key, val){ state.form[key] = val; }
+function onGradeSelect(val){ state.form.grade = val; state.form.className = ''; render(); }
+function classCountForGrade(gradeText){
+  const idx = {'1年':0,'2年':1,'3年':2}[gradeText];
+  return idx===undefined ? 0 : (state.school.classes[idx] || 8);
+}
+function classSelectOptions(f){
+  const n = classCountForGrade(f.grade);
+  if(!n) return '<option value="">先に学年を選んでください</option>';
+  let opts = '<option value="">選択してください</option>';
+  for(let i=1;i<=n;i++){
+    const v = `${i}組`;
+    opts += `<option value="${esc(v)}" ${f.className===v?'selected':''}>${esc(v)}</option>`;
+  }
+  return opts;
+}
 
 async function submitApply(){
   const f = state.form;
@@ -238,11 +266,18 @@ function viewApplyForm(){
     </div>
     <div class="field">
       <label>学年</label>
-      <input type="text" value="${esc(f.grade)}" oninput="onFormInput('grade',this.value)" placeholder="例）2年">
+      <select onchange="onGradeSelect(this.value)">
+        <option value="">選択してください</option>
+        <option value="1年" ${f.grade==='1年'?'selected':''}>1年</option>
+        <option value="2年" ${f.grade==='2年'?'selected':''}>2年</option>
+        <option value="3年" ${f.grade==='3年'?'selected':''}>3年</option>
+      </select>
     </div>
     <div class="field">
       <label>組</label>
-      <input type="text" value="${esc(f.className)}" oninput="onFormInput('className',this.value)" placeholder="例）3組">
+      <select onchange="onFormInput('className',this.value)">
+        ${classSelectOptions(f)}
+      </select>
     </div>
     <div class="field">
       <label>出席番号（任意）</label>
@@ -462,7 +497,8 @@ async function loadSettingsIfNeeded(){
     state.admin.settingsForm = {
       school_name: data.school_name, school_address: data.school_address || '', school_phone: data.school_phone || '',
       school_crest: data.school_crest || '', principal_name: data.principal_name || '',
-      apply_pass: data.apply_pass, new_admin_pass: ''
+      apply_pass: data.apply_pass, new_admin_pass: '',
+      classes_grade1: data.classes_grade1 || 8, classes_grade2: data.classes_grade2 || 8, classes_grade3: data.classes_grade3 || 8
     };
   }catch(e){}
   render();
@@ -498,7 +534,9 @@ async function saveSettings(){
     const { error } = await sb.rpc('gakuseisho_admin_update_settings', {
       p_admin_pass: state.admin.pass, p_school_name: f.school_name, p_school_address: f.school_address,
       p_school_phone: f.school_phone, p_school_crest: f.school_crest, p_principal_name: f.principal_name,
-      p_apply_pass: f.apply_pass, p_new_admin_pass: f.new_admin_pass
+      p_apply_pass: f.apply_pass, p_new_admin_pass: f.new_admin_pass,
+      p_classes_grade1: Number(f.classes_grade1) || 8, p_classes_grade2: Number(f.classes_grade2) || 8,
+      p_classes_grade3: Number(f.classes_grade3) || 8
     });
     if(error) throw error;
     if(f.new_admin_pass && f.new_admin_pass.trim()){
@@ -507,7 +545,7 @@ async function saveSettings(){
     }
     f.new_admin_pass = '';
     const { data } = await sb.rpc('gakuseisho_school_info');
-    if(data) state.school = { name: data.name, address: data.address||'', phone: data.phone||'', crest: data.crest||null, principal: data.principal||'' };
+    if(data) state.school = schoolFromInfo(data);
     alert('設定を保存しました。');
   }catch(e){ alert('保存に失敗しました: ' + (e.message||e)); }
   state.admin.busy = false;
@@ -546,37 +584,61 @@ function studentCardMini(s){
   return `${photo}<div class="meta"><div class="n">${esc(s.name)}</div><div class="s">${esc([cls,no].filter(Boolean).join(' '))}・${fmtDate(s.created_at)}申請</div></div>`;
 }
 
+function adminSetFilter(key, val){ state.admin[key] = val; if(key==='filterGrade') state.admin.filterClass=''; render(); }
+function filterListByClass(arr){
+  return arr.filter(s => (!state.admin.filterGrade || s.grade===state.admin.filterGrade) && (!state.admin.filterClass || s.class_name===state.admin.filterClass));
+}
+function classFilterOptions(){
+  const g = state.admin.filterGrade;
+  const n = g ? classCountForGrade(g) : Math.max(...state.school.classes);
+  let opts = '<option value="">すべて</option>';
+  for(let i=1;i<=n;i++){ const v = `${i}組`; opts += `<option value="${esc(v)}" ${state.admin.filterClass===v?'selected':''}>${esc(v)}</option>`; }
+  return opts;
+}
+function classFilterBar(){
+  return `
+  <div class="filterbar">
+    <select onchange="adminSetFilter('filterGrade',this.value)">
+      <option value="">学年：すべて</option>
+      <option value="1年" ${state.admin.filterGrade==='1年'?'selected':''}>1年</option>
+      <option value="2年" ${state.admin.filterGrade==='2年'?'selected':''}>2年</option>
+      <option value="3年" ${state.admin.filterGrade==='3年'?'selected':''}>3年</option>
+    </select>
+    <select onchange="adminSetFilter('filterClass',this.value)">${classFilterOptions()}</select>
+  </div>`;
+}
+
 function viewAdminDash(){
   const list = state.admin.list || [];
-  const pending = list.filter(s=>s.status==='pending');
-  const approved = list.filter(s=>s.status==='approved');
-  const others = list.filter(s=>s.status==='rejected'||s.status==='revoked');
+  const pending = filterListByClass(list.filter(s=>s.status==='pending'));
+  const approved = filterListByClass(list.filter(s=>s.status==='approved'));
+  const others = filterListByClass(list.filter(s=>s.status==='rejected'||s.status==='revoked'));
 
   let body = '';
   if(state.admin.tab === 'pending'){
-    body = pending.length ? pending.map(s => `
+    body = classFilterBar() + (pending.length ? pending.map(s => `
       <div class="list-item">
         ${studentCardMini(s)}
         <div class="actions">
           <button class="btn btn-sm btn-ok" onclick="adminApprove('${s.id}')">承認</button>
           <button class="btn btn-sm btn-danger" onclick="adminReject('${s.id}')">却下</button>
         </div>
-      </div>`).join('') : `<p class="muted center">承認待ちの申請はありません。</p>`;
+      </div>`).join('') : `<p class="muted center">承認待ちの申請はありません。</p>`);
   } else if(state.admin.tab === 'approved'){
-    body = approved.length ? approved.map(s => `
+    body = classFilterBar() + (approved.length ? approved.map(s => `
       <div class="list-item">
         ${studentCardMini(s)}
         <div class="actions">
           <span class="muted" style="font-size:12px;text-align:center">No.${s.student_no}</span>
           <button class="btn btn-sm btn-gray" onclick="adminRevoke('${s.id}')">無効にする</button>
         </div>
-      </div>`).join('') : `<p class="muted center">承認済みの生徒はいません。</p>`;
+      </div>`).join('') : `<p class="muted center">承認済みの生徒はいません。</p>`);
   } else if(state.admin.tab === 'others'){
-    body = others.length ? others.map(s => `
+    body = classFilterBar() + (others.length ? others.map(s => `
       <div class="list-item">
         ${studentCardMini(s)}
         <span class="status-pill ${s.status==='rejected'?'pill-rejected':'pill-revoked'}">${s.status==='rejected'?'却下':'無効'}</span>
-      </div>`).join('') : `<p class="muted center">対象はありません。</p>`;
+      </div>`).join('') : `<p class="muted center">対象はありません。</p>`);
   } else if(state.admin.tab === 'qr'){
     const url = location.origin + location.pathname;
     const pass = state.admin.settingsForm ? state.admin.settingsForm.apply_pass : null;
@@ -614,6 +676,15 @@ function viewAdminDash(){
       <div class="field">
         <label>校長名</label>
         <input type="text" value="${esc(f.principal_name)}" oninput="onSettingsInput('principal_name',this.value)" placeholder="例）岩手 花子">
+      </div>
+      <div class="field">
+        <label>クラス編成（各学年、何組まであるか）</label>
+        <div class="classrow">
+          <div><span>1年</span><input type="number" min="1" max="20" value="${esc(f.classes_grade1)}" oninput="onSettingsInput('classes_grade1',this.value)"><span>組まで</span></div>
+          <div><span>2年</span><input type="number" min="1" max="20" value="${esc(f.classes_grade2)}" oninput="onSettingsInput('classes_grade2',this.value)"><span>組まで</span></div>
+          <div><span>3年</span><input type="number" min="1" max="20" value="${esc(f.classes_grade3)}" oninput="onSettingsInput('classes_grade3',this.value)"><span>組まで</span></div>
+        </div>
+        <div class="hint">申請フォームの「組」の選択肢と、承認画面の学級フィルターに反映されます。</div>
       </div>
       <div class="field">
         <label>生徒申請用の合言葉</label>

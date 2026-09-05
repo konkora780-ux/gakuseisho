@@ -14,6 +14,9 @@ create table if not exists public.gakuseisho_settings (
   apply_pass text not null default 'gakusei2026',
   admin_pass text not null default 'sensei2026',
   next_student_no int not null default 1,
+  classes_grade1 int not null default 8,
+  classes_grade2 int not null default 8,
+  classes_grade3 int not null default 8,
   constraint gakuseisho_settings_singleton check (id = 1)
 );
 insert into public.gakuseisho_settings (id) values (1) on conflict (id) do nothing;
@@ -21,6 +24,9 @@ alter table public.gakuseisho_settings add column if not exists school_address t
 alter table public.gakuseisho_settings add column if not exists school_phone text not null default '';
 alter table public.gakuseisho_settings add column if not exists school_crest text;
 alter table public.gakuseisho_settings add column if not exists principal_name text not null default '';
+alter table public.gakuseisho_settings add column if not exists classes_grade1 int not null default 8;
+alter table public.gakuseisho_settings add column if not exists classes_grade2 int not null default 8;
+alter table public.gakuseisho_settings add column if not exists classes_grade3 int not null default 8;
 
 create table if not exists public.gakuseisho_students (
   id uuid primary key default gen_random_uuid(),
@@ -53,13 +59,15 @@ drop function if exists public.gakuseisho_apply(text,text,text,text,text,text);
 drop function if exists public.gakuseisho_apply(text,text,text,text,text,text,text);
 drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text);
 drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text);
+drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text);
 
 -- 学校情報の表示（申請フォーム・学生証に出す。パスワード不要・誰でも見られる）
 create or replace function public.gakuseisho_school_info() returns jsonb
 language sql security definer set search_path = '' as $$
   select jsonb_build_object(
     'name', school_name, 'address', school_address, 'phone', school_phone,
-    'crest', school_crest, 'principal', principal_name
+    'crest', school_crest, 'principal', principal_name,
+    'classes_grade1', classes_grade1, 'classes_grade2', classes_grade2, 'classes_grade3', classes_grade3
   ) from public.gakuseisho_settings where id = 1;
 $$;
 
@@ -176,7 +184,8 @@ end; $$;
 -- 各項目は空欄なら「変更なし」として現在の値を維持する（校章は空文字のとき変更なし）
 create or replace function public.gakuseisho_admin_update_settings(
   p_admin_pass text, p_school_name text, p_school_address text, p_school_phone text,
-  p_school_crest text, p_principal_name text, p_apply_pass text, p_new_admin_pass text
+  p_school_crest text, p_principal_name text, p_apply_pass text, p_new_admin_pass text,
+  p_classes_grade1 int, p_classes_grade2 int, p_classes_grade3 int
 ) returns void
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -190,7 +199,10 @@ begin
     school_crest = coalesce(nullif(trim(p_school_crest), ''), school_crest),
     principal_name = coalesce(trim(p_principal_name), principal_name),
     apply_pass = coalesce(nullif(trim(p_apply_pass), ''), apply_pass),
-    admin_pass = coalesce(nullif(trim(p_new_admin_pass), ''), admin_pass)
+    admin_pass = coalesce(nullif(trim(p_new_admin_pass), ''), admin_pass),
+    classes_grade1 = least(greatest(coalesce(p_classes_grade1, classes_grade1), 1), 20),
+    classes_grade2 = least(greatest(coalesce(p_classes_grade2, classes_grade2), 1), 20),
+    classes_grade3 = least(greatest(coalesce(p_classes_grade3, classes_grade3), 1), 20)
   where id = 1;
 end; $$;
 
@@ -202,7 +214,7 @@ revoke all on function public.gakuseisho_admin_approve(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_reject(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_revoke(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_get_settings(text) from public;
-revoke all on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text) from public;
+revoke all on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) from public;
 
 grant execute on function public.gakuseisho_school_info() to anon, authenticated;
 grant execute on function public.gakuseisho_apply(text,text,text,text,text,text,text,text,text) to anon, authenticated;
@@ -212,4 +224,4 @@ grant execute on function public.gakuseisho_admin_approve(text,uuid) to anon, au
 grant execute on function public.gakuseisho_admin_reject(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_revoke(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_get_settings(text) to anon, authenticated;
-grant execute on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text) to anon, authenticated;
+grant execute on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) to anon, authenticated;
