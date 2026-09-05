@@ -578,24 +578,25 @@ async function adminPromote(){
 
 function adminSetTab(tab){ state.admin.tab = tab; render(); if(tab==='settings'||tab==='qr') loadSettingsIfNeeded(); if(tab==='qr') drawQrSoon(); }
 
-function printDraftSheet(){
-  const list = filterListByClass((state.admin.list || []).filter(s => s.status === 'pending'));
+function printDraftSheet(status){
+  const list = filterListByClass((state.admin.list || []).filter(s => s.status === status));
   if(!list.length){ alert('印刷対象の生徒がいません。'); return; }
   const gradeLabel = state.admin.filterGrade || '全学年';
   const classLabel = state.admin.filterClass || '全クラス';
   const today = new Date();
   const todayText = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+  const title = status === 'approved' ? '学生証 承認済み一覧' : '学生証発行 起案書';
   const items = list.map(s => `
     <div class="print-item">
       <div class="print-photo">${s.photo ? `<img src="${s.photo}">` : '写真なし'}</div>
       <div class="print-fields">
-        <div class="print-name">${esc(s.name)}</div>
+        <div class="print-name">${esc(s.name)}${status==='approved'?`　<span>No.</span>${String(s.student_no??0).padStart(6,'0')}`:''}</div>
         <div>${s.department?`<span>所属</span>${esc(s.department)}　`:''}<span>学年</span>${esc(s.grade||'-')}　<span>出席番号</span>${s.attendance_no?esc(s.attendance_no)+'番':'-'}</div>
         <div><span>生年月日</span>${s.birthdate?fmtDateJp(s.birthdate):'-'}</div>
       </div>
     </div>`).join('');
   document.getElementById('printSheet').innerHTML = `
-    <div class="print-header">学生証発行 起案書　${esc(state.school.name)}　${esc(gradeLabel)}／${esc(classLabel)}　対象${list.length}人　${todayText}作成</div>
+    <div class="print-header">${title}　${esc(state.school.name)}　${esc(gradeLabel)}／${esc(classLabel)}　対象${list.length}人　${todayText}作成</div>
     ${items}`;
   setTimeout(() => window.print(), 30);
 }
@@ -740,7 +741,7 @@ function viewAdminDash(){
   let body = '';
   if(state.admin.tab === 'pending'){
     body = classFilterBar()
-      + (pending.length ? `<button class="btn btn-line btn-block" style="margin-bottom:12px" onclick="printDraftSheet()">🖨 起案書を印刷（今の絞り込みの${pending.length}人分）</button>` : '')
+      + (pending.length ? `<button class="btn btn-line btn-block" style="margin-bottom:12px" onclick="printDraftSheet('pending')">🖨 起案書を印刷（今の絞り込みの${pending.length}人分）</button>` : '')
       + (pending.length ? pending.map(s => `
       <div class="list-item">
         ${studentCardMini(s)}
@@ -750,7 +751,9 @@ function viewAdminDash(){
         </div>
       </div>`).join('') : `<p class="muted center">承認待ちの申請はありません。</p>`);
   } else if(state.admin.tab === 'approved'){
-    body = classFilterBar() + (approved.length ? approved.map(s => `
+    body = classFilterBar()
+      + (approved.length ? `<button class="btn btn-line btn-block" style="margin-bottom:12px" onclick="printDraftSheet('approved')">🖨 承認済み一覧を印刷（今の絞り込みの${approved.length}人分）</button>` : '')
+      + (approved.length ? approved.map(s => `
       <div class="list-item">
         ${studentCardMini(s)}
         <div class="actions">
