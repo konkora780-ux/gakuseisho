@@ -50,14 +50,40 @@ h2{font-size:17px;margin:0 0 12px}
 
 /* 学生証カード */
 .idcard{border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(20,30,60,.22);background:#fff;position:relative;border:1px solid #e2e6f0}
-.idcard .band{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.idcard::after{content:'';position:absolute;top:-60%;left:-70%;width:35%;height:220%;
+  background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,0) 35%,rgba(255,255,255,.75) 50%,rgba(255,255,255,0) 65%,transparent 100%);
+  transform:rotate(8deg);animation:idshine 3.2s ease-in-out infinite;pointer-events:none}
+@keyframes idshine{0%{left:-70%}45%{left:130%}100%{left:130%}}
+.idcard .livebar{text-align:center;font-size:11px;color:var(--sub);letter-spacing:.04em;padding:0 16px 14px;position:relative}
+.idcard .livebar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;animation:idpulse 1.6s ease-in-out infinite;vertical-align:1px}
+.idcard .livebar span.t{font-variant-numeric:tabular-nums;font-weight:800;color:var(--accent)}
+@keyframes idpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.idcard .band{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px}
 .idcard .band .school{font-weight:900;font-size:15px}
 .idcard .band .tag{font-size:11px;letter-spacing:.15em;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:20px}
-.idcard .body{display:flex;gap:16px;padding:18px 16px}
+.idcard .crestwrap{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center}
+.idcard .crest{width:32px;height:32px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.15)}
+.idcard .crest-empty{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.5)}
+.idcard .titlewrap{flex:1;min-width:0}
+.idcard .doctitle{font-weight:900;font-size:16px;letter-spacing:.12em}
+.idcard .noband{font-size:12px;font-weight:800;letter-spacing:.03em;background:rgba(255,255,255,.18);padding:3px 9px;border-radius:20px;white-space:nowrap;flex:none}
+.idcard .certify{font-size:11px;color:var(--sub);text-align:center;padding:9px 14px;border-bottom:1px dashed var(--line)}
+.idcard .body{display:flex;gap:16px;padding:14px 16px}
 .idcard .photo{width:96px;height:124px;border-radius:10px;object-fit:cover;background:#eceff5;border:2px solid var(--gold);flex:none}
 .idcard .info{flex:1;min-width:0}
 .idcard .name{font-size:22px;font-weight:900;line-height:1.3;word-break:break-word}
 .idcard .grade{font-size:14px;color:var(--sub);margin-top:2px}
+.idcard .fields{flex:1;min-width:0;display:grid;grid-template-columns:76px 1fr;row-gap:7px;column-gap:8px;font-size:13px;margin:0;align-content:start}
+.idcard .fields dt{color:var(--sub);font-weight:700}
+.idcard .fields dd{margin:0;font-weight:800;word-break:break-word;color:var(--ink)}
+.idcard .datesrow{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);padding:9px 16px;border-top:1px dashed var(--line)}
+.idcard .issuer{border-top:6px solid #f2f4f9;background:#fafbfd;padding:11px 16px 14px;font-size:11.5px;color:var(--sub)}
+.idcard .issuer-title{font-weight:800;color:var(--ink);margin-bottom:5px;font-size:11.5px}
+.idcard .issuer .row{display:flex;gap:8px;margin-top:3px;align-items:center}
+.idcard .issuer .row>span:first-child{flex:none;width:46px;color:var(--sub)}
+.idcard .issuer .row>span:last-child{flex:1;color:var(--ink);font-weight:700}
+.idcard .issuer .row.principal .pname{position:relative;display:inline-flex;align-items:center;gap:8px}
+.idcard .seal{display:inline-flex;flex:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:1.6px solid #c0392b;color:#c0392b;font-size:10px;font-weight:900;transform:rotate(-8deg);opacity:.85;letter-spacing:-1px}
 .idcard .foot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 16px;font-size:12px;color:var(--sub);border-top:1px dashed var(--line);margin:0 16px}
 .idcard .no{font-weight:800;color:var(--ink);letter-spacing:.04em}
 
@@ -92,14 +118,20 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(iso){ if(!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+function fmtDateJp(input){ if(!input) return ''; const d = new Date(input); if(isNaN(d)) return ''; return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`; }
+function schoolYearEndJp(issuedIso){
+  const d = issuedIso ? new Date(issuedIso) : new Date();
+  const y = d.getMonth() >= 3 ? d.getFullYear()+1 : d.getFullYear();
+  return `${y}年3月31日`;
+}
 
 let DEVICE_ID = localStorage.getItem('gks_device_id');
 if(!DEVICE_ID){ DEVICE_ID = crypto.randomUUID(); localStorage.setItem('gks_device_id', DEVICE_ID); }
 
 const state = {
-  schoolName: '学生証発行校',
+  school: { name:'学生証発行校', address:'', phone:'', crest:null, principal:'' },
   myStatus: undefined, // undefined=未取得 / null=未申請 / object
-  form: { name:'', grade:'', className:'', photo:'', passcode:'' },
+  form: { name:'', grade:'', className:'', attendanceNo:'', department:'', birthdate:'', photo:'', passcode:'' },
   submitting: false,
   err: '',
   admin: {
@@ -120,8 +152,8 @@ async function boot(){
     ? '学生証<small>先生用 管理画面</small>'
     : '学生証<small>デジタル学生証アプリ</small>';
   try{
-    const { data } = await sb.rpc('gakuseisho_school_name');
-    if(data) state.schoolName = data;
+    const { data } = await sb.rpc('gakuseisho_school_info');
+    if(data) state.school = { name: data.name, address: data.address||'', phone: data.phone||'', crest: data.crest||null, principal: data.principal||'' };
   }catch(e){}
   if(isAdminRoute()) await bootAdmin(); else await bootStudent();
 }
@@ -170,7 +202,9 @@ async function submitApply(){
   try{
     const { error } = await sb.rpc('gakuseisho_apply', {
       p_device_id: DEVICE_ID, p_name: f.name.trim(), p_grade: f.grade.trim(),
-      p_class: f.className.trim(), p_photo: f.photo || null, p_passcode: f.passcode.trim()
+      p_class: f.className.trim(), p_attendance_no: f.attendanceNo.trim(),
+      p_department: f.department.trim(), p_birthdate: f.birthdate || null,
+      p_photo: f.photo || null, p_passcode: f.passcode.trim()
     });
     if(error) throw error;
     const { data } = await sb.rpc('gakuseisho_my_status', { p_device_id: DEVICE_ID });
@@ -189,19 +223,31 @@ function viewApplyForm(){
   return `
   <div class="card">
     <h2>学生証の申請</h2>
-    <p class="muted">${esc(state.schoolName)} の学生証を申請します。先生に教えてもらった合言葉が必要です。</p>
+    <p class="muted">${esc(state.school.name)} の学生証を申請します。先生に教えてもらった合言葉が必要です。</p>
     ${state.err ? `<div class="err">${esc(state.err)}</div>` : ''}
     <div class="field">
       <label>名前</label>
       <input type="text" value="${esc(f.name)}" oninput="onFormInput('name',this.value)" placeholder="やまだ　たろう">
     </div>
     <div class="field">
-      <label>学年</label>
-      <input type="text" value="${esc(f.grade)}" oninput="onFormInput('grade',this.value)" placeholder="例）3年">
+      <label>所属（学科・コース）（任意）</label>
+      <input type="text" value="${esc(f.department)}" oninput="onFormInput('department',this.value)" placeholder="例）普通科">
     </div>
     <div class="field">
-      <label>組・クラス</label>
-      <input type="text" value="${esc(f.className)}" oninput="onFormInput('className',this.value)" placeholder="例）1組 / さくら学級">
+      <label>学年</label>
+      <input type="text" value="${esc(f.grade)}" oninput="onFormInput('grade',this.value)" placeholder="例）2年">
+    </div>
+    <div class="field">
+      <label>組</label>
+      <input type="text" value="${esc(f.className)}" oninput="onFormInput('className',this.value)" placeholder="例）3組">
+    </div>
+    <div class="field">
+      <label>出席番号（任意）</label>
+      <input type="text" value="${esc(f.attendanceNo)}" oninput="onFormInput('attendanceNo',this.value)" placeholder="例）15">
+    </div>
+    <div class="field">
+      <label>生年月日（任意）</label>
+      <input type="date" value="${esc(f.birthdate)}" oninput="onFormInput('birthdate',this.value)">
     </div>
     <div class="field">
       <label>写真（任意）</label>
@@ -246,33 +292,68 @@ function viewRevoked(){
   return `
   <div class="card center">
     <span class="status-pill pill-revoked">無効になりました</span>
-    <p class="muted" style="margin-top:14px">この学生証は使えません。心当たりがなければ先生にお問い合わせください。</p>
+    <p class="muted" style="margin-top:14px">この学生証は使えません。内容に間違いがあった場合は、先生に確認してもらってからもう一度申請してください。</p>
+    <button class="btn btn-primary btn-block" onclick="retryApply()">もう一度申請する</button>
   </div>`;
 }
 
 function viewIdCard(){
   const m = state.myStatus;
+  const school = state.school;
+  const noText = String(m.student_no ?? 0).padStart(6, '0');
   return `
   <div class="idcard">
-    <div class="band"><span class="school">${esc(state.schoolName)}</span><span class="tag">STUDENT ID</span></div>
+    <div class="band">
+      <div class="crestwrap">${school.crest ? `<img class="crest" src="${school.crest}">` : `<div class="crest-empty"></div>`}</div>
+      <div class="titlewrap"><div class="doctitle">生徒証明書</div></div>
+      <div class="noband">No. ${esc(noText)}</div>
+    </div>
+    <div class="certify">下記の者は、当校の生徒であることを証明する。</div>
     <div class="body">
       ${m.photo ? `<img class="photo" src="${m.photo}">` : `<div class="photo" style="display:flex;align-items:center;justify-content:center;color:#9aa1b5;font-size:12px">写真なし</div>`}
-      <div class="info">
-        <div class="name">${esc(m.name)}</div>
-        <div class="grade">${esc(m.grade||'')} ${esc(m.class_name||'')}</div>
-      </div>
+      <dl class="fields">
+        ${m.department ? `<dt>所属</dt><dd>${esc(m.department)}</dd>` : ''}
+        <dt>名前</dt><dd>${esc(m.name)}</dd>
+        ${m.birthdate ? `<dt>生年月日</dt><dd>${fmtDateJp(m.birthdate)}</dd>` : ''}
+        <dt>学年組</dt><dd>${esc(m.grade||'')}${esc(m.class_name||'')}</dd>
+        ${m.attendance_no ? `<dt>出席番号</dt><dd>${esc(m.attendance_no)}番</dd>` : ''}
+      </dl>
     </div>
-    <div class="foot">
-      <span>発行日 ${fmtDate(m.approved_at)}</span>
-      <span class="no">No. ${m.student_no ?? '-'}</span>
+    <div class="datesrow">
+      <span>発行日　${fmtDateJp(m.approved_at)}</span>
+      <span>有効期限　${schoolYearEndJp(m.approved_at)}まで</span>
     </div>
+    <div class="issuer">
+      <div class="issuer-title">発行者</div>
+      <div class="row"><span>所在地</span><span>${school.address ? esc(school.address) : '-'}</span></div>
+      <div class="row"><span>学校名</span><span>${esc(school.name)}</span></div>
+      <div class="row"><span>電話</span><span>${school.phone ? esc(school.phone) : '-'}</span></div>
+      <div class="row principal"><span>校長名</span><span class="pname">${school.principal ? esc(school.principal) : '-'}${school.principal ? `<span class="seal">校長印</span>` : ''}</span></div>
+    </div>
+    <div class="livebar"><span class="dot"></span>本人確認用表示中 <span class="t" id="livetime">--:--:--</span></div>
   </div>
-  <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。</p>`;
+  <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。（時計が動いていない画像は写真の可能性があります）</p>`;
+}
+
+let _clockTimer = null;
+function stopLiveClock(){ if(_clockTimer){ clearInterval(_clockTimer); _clockTimer = null; } }
+function startLiveClock(){
+  stopLiveClock();
+  const tick = () => {
+    const el = document.getElementById('livetime');
+    if(!el){ stopLiveClock(); return; }
+    const d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    el.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  tick();
+  _clockTimer = setInterval(tick, 1000);
 }
 
 function render(){
   if(isAdminRoute()){ renderAdmin(); return; }
   let html = '';
+  let showFooterLink = true;
   if(state.myStatus === undefined){
     html = state.bootErr
       ? `<div class="card center"><div class="err">${esc(state.bootErr)}</div><button class="btn btn-line btn-block" onclick="bootStudent()">もう一度試す</button></div>`
@@ -282,12 +363,13 @@ function render(){
   } else {
     const st = state.myStatus.status;
     if(st === 'pending') html = viewPendingCard();
-    else if(st === 'approved') html = viewIdCard();
+    else if(st === 'approved'){ html = viewIdCard(); showFooterLink = false; }
     else if(st === 'rejected') html = viewRejected();
     else if(st === 'revoked') html = viewRevoked();
   }
-  html += `<a class="footer-link" href="#admin">先生用 管理画面はこちら</a>`;
+  if(showFooterLink) html += `<a class="footer-link" href="#admin">先生用 管理画面はこちら</a>`;
   app().innerHTML = html;
+  if(state.myStatus && state.myStatus.status === 'approved') startLiveClock(); else stopLiveClock();
 }
 
 /* ========== 先生用 管理画面 ========== */
@@ -374,7 +456,11 @@ async function loadSettingsIfNeeded(){
   try{
     const { data, error } = await sb.rpc('gakuseisho_admin_get_settings', { p_admin_pass: state.admin.pass });
     if(error) throw error;
-    state.admin.settingsForm = { school_name: data.school_name, apply_pass: data.apply_pass, new_admin_pass: '' };
+    state.admin.settingsForm = {
+      school_name: data.school_name, school_address: data.school_address || '', school_phone: data.school_phone || '',
+      school_crest: data.school_crest || '', principal_name: data.principal_name || '',
+      apply_pass: data.apply_pass, new_admin_pass: ''
+    };
   }catch(e){}
   render();
   drawQrSoon();
@@ -382,12 +468,34 @@ async function loadSettingsIfNeeded(){
 
 function onSettingsInput(key, val){ state.admin.settingsForm[key] = val; }
 
+function onCrestInput(evt){
+  const file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 200;
+      const scale = Math.min(maxSize/img.width, maxSize/img.height, 1);
+      const w = Math.max(1, Math.round(img.width*scale)), h = Math.max(1, Math.round(img.height*scale));
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      state.admin.settingsForm.school_crest = c.toDataURL('image/png');
+      render();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 async function saveSettings(){
   const f = state.admin.settingsForm;
   state.admin.busy = true; render();
   try{
     const { error } = await sb.rpc('gakuseisho_admin_update_settings', {
-      p_admin_pass: state.admin.pass, p_school_name: f.school_name, p_apply_pass: f.apply_pass, p_new_admin_pass: f.new_admin_pass
+      p_admin_pass: state.admin.pass, p_school_name: f.school_name, p_school_address: f.school_address,
+      p_school_phone: f.school_phone, p_school_crest: f.school_crest, p_principal_name: f.principal_name,
+      p_apply_pass: f.apply_pass, p_new_admin_pass: f.new_admin_pass
     });
     if(error) throw error;
     if(f.new_admin_pass && f.new_admin_pass.trim()){
@@ -395,8 +503,8 @@ async function saveSettings(){
       sessionStorage.setItem('gks_admin_pass', state.admin.pass);
     }
     f.new_admin_pass = '';
-    const { data } = await sb.rpc('gakuseisho_school_name');
-    if(data) state.schoolName = data;
+    const { data } = await sb.rpc('gakuseisho_school_info');
+    if(data) state.school = { name: data.name, address: data.address||'', phone: data.phone||'', crest: data.crest||null, principal: data.principal||'' };
     alert('設定を保存しました。');
   }catch(e){ alert('保存に失敗しました: ' + (e.message||e)); }
   state.admin.busy = false;
@@ -430,7 +538,9 @@ function viewAdminLogin(){
 
 function studentCardMini(s){
   const photo = s.photo ? `<img src="${s.photo}">` : `<img style="background:#eceff5">`;
-  return `${photo}<div class="meta"><div class="n">${esc(s.name)}</div><div class="s">${esc(s.grade||'')} ${esc(s.class_name||'')}・${fmtDate(s.created_at)}申請</div></div>`;
+  const cls = [s.grade, s.class_name].filter(Boolean).join('');
+  const no = s.attendance_no ? `${s.attendance_no}番` : '';
+  return `${photo}<div class="meta"><div class="n">${esc(s.name)}</div><div class="s">${esc([cls,no].filter(Boolean).join(' '))}・${fmtDate(s.created_at)}申請</div></div>`;
 }
 
 function viewAdminDash(){
@@ -478,6 +588,26 @@ function viewAdminDash(){
         <input type="text" value="${esc(f.school_name)}" oninput="onSettingsInput('school_name',this.value)">
       </div>
       <div class="field">
+        <label>校章</label>
+        <div class="photo-row">
+          <div class="photo-preview" style="width:64px;height:64px;border-radius:50%;${f.school_crest?`background-image:url('${f.school_crest}')`:''}">${f.school_crest?'':'校章'}</div>
+          <input type="file" accept="image/*" onchange="onCrestInput(event)">
+        </div>
+        <div class="hint">学生証の左上に表示されます。なくても発行できます。</div>
+      </div>
+      <div class="field">
+        <label>学校所在地</label>
+        <input type="text" value="${esc(f.school_address)}" oninput="onSettingsInput('school_address',this.value)" placeholder="例）盛岡市○○町1-2-3">
+      </div>
+      <div class="field">
+        <label>学校電話番号</label>
+        <input type="text" value="${esc(f.school_phone)}" oninput="onSettingsInput('school_phone',this.value)" placeholder="例）019-000-0000">
+      </div>
+      <div class="field">
+        <label>校長名</label>
+        <input type="text" value="${esc(f.principal_name)}" oninput="onSettingsInput('principal_name',this.value)" placeholder="例）岩手 花子">
+      </div>
+      <div class="field">
         <label>生徒申請用の合言葉</label>
         <input type="text" value="${esc(f.apply_pass)}" oninput="onSettingsInput('apply_pass',this.value)">
         <div class="hint">生徒がQRコードを読み取ったあとに入力する合言葉です。</div>
@@ -492,7 +622,7 @@ function viewAdminDash(){
 
   return `
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <div class="muted">${esc(state.schoolName)}</div>
+    <div class="muted">${esc(state.school.name)}</div>
     <button class="btn btn-sm btn-gray" onclick="adminLogout()">ログアウト</button>
   </div>
   <div class="tabs">
