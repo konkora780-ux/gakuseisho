@@ -111,6 +111,7 @@ h2{font-size:17px;margin:0 0 12px}
 .classrow input{width:52px;padding:8px 6px;text-align:center;font-size:14px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit}
 .filterbar{display:flex;gap:8px;margin-bottom:12px}
 .filterbar select{flex:1;padding:9px 8px;font-size:13px;border:1.5px solid var(--line);border-radius:9px;background:#fbfcff;font-family:inherit;color:var(--ink)}
+.hshint{margin-top:14px;background:#eef4ff;border:1px solid #cfe0fb;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#2c4a7c;line-height:1.6}
 .passbox-label{font-size:12px;color:#8a6300;font-weight:700}
 .passbox-value{font-size:22px;font-weight:900;letter-spacing:.08em;color:#6b5416;margin-top:2px;word-break:break-all}
 </style>
@@ -303,6 +304,10 @@ function viewApplyForm(){
   </div>`;
 }
 
+function homeScreenHint(){
+  return `<div class="hshint">💡 この画面を閉じても大丈夫です。<b>同じスマホ・同じブラウザ</b>でこのページをもう一度開けば、いつでもここに戻ってきます。「ホーム画面に追加」しておくと、アイコンをタップするだけで開けて一番確実です。</div>`;
+}
+
 function viewPendingCard(){
   const m = state.myStatus;
   return `
@@ -313,7 +318,8 @@ function viewPendingCard(){
     <span class="status-pill pill-pending">承認待ち</span>
     <p class="muted" style="margin-top:14px">先生が承認すると、この画面が学生証に切り替わります。</p>
     <button class="btn btn-line btn-block" onclick="bootStudent()">最新の状態を確認</button>
-  </div>`;
+  </div>
+  ${homeScreenHint()}`;
 }
 
 function viewRejected(){
@@ -370,7 +376,8 @@ function viewIdCard(){
     </div>
     <div class="livebar"><span class="dot"></span>本人確認用表示中 <span class="t" id="livetime">--:--:--</span></div>
   </div>
-  <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。（時計が動いていない画像は写真の可能性があります）</p>`;
+  <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。（時計が動いていない画像は写真の可能性があります）</p>
+  ${homeScreenHint()}`;
 }
 
 let _clockTimer = null;
