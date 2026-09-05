@@ -22,9 +22,7 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;line-height:1.6;padding-bottom:40px}
-.wrap{max-width:480px;margin:0 auto;padding:20px 16px 60px}
-.topbar{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:18px 16px;text-align:center;font-weight:900;font-size:20px;letter-spacing:.05em;box-shadow:0 2px 10px rgba(0,0,0,.15)}
-.topbar small{display:block;font-weight:500;font-size:13px;opacity:.85;margin-top:2px}
+.wrap{max-width:480px;margin:0 auto;padding:16px 16px 60px;padding-top:calc(env(safe-area-inset-top, 0px) + 16px)}
 h2{font-size:17px;margin:0 0 12px}
 .card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 2px 10px rgba(20,30,60,.08);margin-bottom:16px}
 .field{margin-bottom:14px}
@@ -126,7 +124,6 @@ h2{font-size:17px;margin:0 0 12px}
 </style>
 </head>
 <body>
-<div class="topbar" id="topbar">学生証<small>デジタル学生証アプリ</small></div>
 <div class="wrap" id="app">読み込み中…</div>
 
 <script>
@@ -183,9 +180,6 @@ function schoolFromInfo(data){
 }
 
 async function boot(){
-  document.getElementById('topbar').innerHTML = isAdminRoute()
-    ? '学生証<small>先生用 管理画面</small>'
-    : '学生証<small>デジタル学生証アプリ</small>';
   try{
     const { data } = await sb.rpc('gakuseisho_school_info');
     if(data) state.school = schoolFromInfo(data);
@@ -406,7 +400,7 @@ function viewIdCard(){
   <div class="idcard">
     <div class="band">
       <div class="crestwrap">${school.crest ? `<img class="crest" src="${school.crest}">` : `<div class="crest-empty"></div>`}</div>
-      <div class="titlewrap"><div class="doctitle">生徒証明書</div></div>
+      <div class="titlewrap"><div class="doctitle">生徒デジタル証明書</div></div>
       <div class="noband">No. ${esc(noText)}</div>
     </div>
     <div class="certify">下記の者は、当校の生徒であることを証明する。</div>
