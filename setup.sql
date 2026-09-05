@@ -131,6 +131,10 @@ declare v_row public.gakuseisho_students;
 begin
   select * into v_row from public.gakuseisho_students where device_id = p_device_id;
   if not found then return null; end if;
+  if v_row.recovery_code is null then
+    update public.gakuseisho_students set recovery_code = public.gakuseisho_gen_recovery_code()
+      where id = v_row.id returning * into v_row;
+  end if;
   return jsonb_build_object(
     'id', v_row.id, 'name', v_row.name, 'grade', v_row.grade, 'class_name', v_row.class_name,
     'attendance_no', v_row.attendance_no, 'department', v_row.department, 'birthdate', v_row.birthdate,
