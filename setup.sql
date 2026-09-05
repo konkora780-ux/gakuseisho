@@ -40,12 +40,14 @@ create table if not exists public.gakuseisho_students (
   photo text,
   status text not null default 'pending' check (status in ('pending','approved','rejected','revoked')),
   student_no int,
+  recovery_code text unique,
   created_at timestamptz not null default now(),
   approved_at timestamptz
 );
 alter table public.gakuseisho_students add column if not exists attendance_no text;
 alter table public.gakuseisho_students add column if not exists department text;
 alter table public.gakuseisho_students add column if not exists birthdate date;
+alter table public.gakuseisho_students add column if not exists recovery_code text unique;
 
 alter table public.gakuseisho_settings enable row level security;
 alter table public.gakuseisho_students enable row level security;
@@ -60,6 +62,19 @@ drop function if exists public.gakuseisho_apply(text,text,text,text,text,text,te
 drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text);
 drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text);
 drop function if exists public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text);
+
+-- 引き継ぎコードの生成（内部利用のみ。紛らわしい文字0/O/1/I/Lを除く）
+create or replace function public.gakuseisho_gen_recovery_code() returns text
+language plpgsql set search_path = '' as $$
+declare chars text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; result text := ''; i int;
+begin
+  for i in 1..8 loop
+    result := result || substr(chars, (floor(random()*length(chars))+1)::int, 1);
+    if i = 4 then result := result || '-'; end if;
+  end loop;
+  return result;
+end; $$;
+revoke all on function public.gakuseisho_gen_recovery_code() from public;
 
 -- 学校情報の表示（申請フォーム・学生証に出す。パスワード不要・誰でも見られる）
 create or replace function public.gakuseisho_school_info() returns jsonb
@@ -94,14 +109,16 @@ begin
   end if;
 
   insert into public.gakuseisho_students
-    (device_id, name, grade, class_name, attendance_no, department, birthdate, photo, status, created_at)
+    (device_id, name, grade, class_name, attendance_no, department, birthdate, photo, status, created_at, recovery_code)
   values
-    (p_device_id, p_name, p_grade, p_class, p_attendance_no, p_department, v_birthdate, p_photo, 'pending', now())
+    (p_device_id, p_name, p_grade, p_class, p_attendance_no, p_department, v_birthdate, p_photo, 'pending', now(),
+     public.gakuseisho_gen_recovery_code())
   on conflict (device_id) do update set
     name = excluded.name, grade = excluded.grade, class_name = excluded.class_name,
     attendance_no = excluded.attendance_no, department = excluded.department, birthdate = excluded.birthdate,
     photo = excluded.photo, status = 'pending', created_at = now(),
-    approved_at = null, student_no = null
+    approved_at = null, student_no = null,
+    recovery_code = coalesce(public.gakuseisho_students.recovery_code, excluded.recovery_code)
   returning * into v_row;
 
   return jsonb_build_object('id', v_row.id, 'status', v_row.status);
@@ -118,8 +135,20 @@ begin
     'id', v_row.id, 'name', v_row.name, 'grade', v_row.grade, 'class_name', v_row.class_name,
     'attendance_no', v_row.attendance_no, 'department', v_row.department, 'birthdate', v_row.birthdate,
     'photo', v_row.photo, 'status', v_row.status, 'student_no', v_row.student_no,
-    'created_at', v_row.created_at, 'approved_at', v_row.approved_at
+    'created_at', v_row.created_at, 'approved_at', v_row.approved_at, 'recovery_code', v_row.recovery_code
   );
+end; $$;
+
+-- 生徒: 引き継ぎコードで別の端末にこの登録を復元する（device_idを返すだけ。中身は返さない）
+create or replace function public.gakuseisho_restore(p_recovery_code text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare v_row public.gakuseisho_students;
+begin
+  select * into v_row from public.gakuseisho_students where recovery_code = upper(trim(p_recovery_code));
+  if not found then
+    raise exception 'コードが見つかりません。入力内容を確認してください。';
+  end if;
+  return jsonb_build_object('device_id', v_row.device_id);
 end; $$;
 
 -- 管理: 一覧（先生の管理者パスワードが必要）
@@ -168,6 +197,33 @@ begin
   update public.gakuseisho_students set status = 'revoked' where id = p_id;
 end; $$;
 
+-- 管理: 進級処理（3/31〜4/1の年度切り替え）。1年→2年、2年→3年、3年は卒業扱いで無効化。
+-- 承認済みの生徒だけが対象。発行日表示は承認日から自動計算されるため、対象者のapproved_atを
+-- 新年度の4/1に更新して「発行日=4/1」表示を新年度に合わせる。
+create or replace function public.gakuseisho_admin_promote(p_admin_pass text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare v_new_year_start date; v_graduated int; v_promoted2 int; v_promoted3 int;
+begin
+  if p_admin_pass is distinct from (select admin_pass from public.gakuseisho_settings where id = 1) then
+    raise exception 'パスワードが違います';
+  end if;
+  v_new_year_start := make_date(extract(year from now())::int, 4, 1);
+
+  update public.gakuseisho_students set status = 'revoked'
+    where status = 'approved' and grade = '3年';
+  get diagnostics v_graduated = row_count;
+
+  update public.gakuseisho_students set grade = '3年', approved_at = v_new_year_start
+    where status = 'approved' and grade = '2年';
+  get diagnostics v_promoted3 = row_count;
+
+  update public.gakuseisho_students set grade = '2年', approved_at = v_new_year_start
+    where status = 'approved' and grade = '1年';
+  get diagnostics v_promoted2 = row_count;
+
+  return jsonb_build_object('graduated', v_graduated, 'promoted_to_3', v_promoted3, 'promoted_to_2', v_promoted2);
+end; $$;
+
 -- 管理: 現在の設定を見る（学校名・住所・電話・校章・合言葉・管理者パスワードの確認用）
 create or replace function public.gakuseisho_admin_get_settings(p_admin_pass text) returns public.gakuseisho_settings
 language plpgsql security definer set search_path = '' as $$
@@ -209,19 +265,23 @@ end; $$;
 revoke all on function public.gakuseisho_school_info() from public;
 revoke all on function public.gakuseisho_apply(text,text,text,text,text,text,text,text,text) from public;
 revoke all on function public.gakuseisho_my_status(text) from public;
+revoke all on function public.gakuseisho_restore(text) from public;
 revoke all on function public.gakuseisho_admin_list(text) from public;
 revoke all on function public.gakuseisho_admin_approve(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_reject(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_revoke(text,uuid) from public;
+revoke all on function public.gakuseisho_admin_promote(text) from public;
 revoke all on function public.gakuseisho_admin_get_settings(text) from public;
 revoke all on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) from public;
 
 grant execute on function public.gakuseisho_school_info() to anon, authenticated;
 grant execute on function public.gakuseisho_apply(text,text,text,text,text,text,text,text,text) to anon, authenticated;
 grant execute on function public.gakuseisho_my_status(text) to anon, authenticated;
+grant execute on function public.gakuseisho_restore(text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_list(text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_approve(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_reject(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_revoke(text,uuid) to anon, authenticated;
+grant execute on function public.gakuseisho_admin_promote(text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_get_settings(text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) to anon, authenticated;

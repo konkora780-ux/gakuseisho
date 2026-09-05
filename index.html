@@ -112,6 +112,11 @@ h2{font-size:17px;margin:0 0 12px}
 .filterbar{display:flex;gap:8px;margin-bottom:12px}
 .filterbar select{flex:1;padding:9px 8px;font-size:13px;border:1.5px solid var(--line);border-radius:9px;background:#fbfcff;font-family:inherit;color:var(--ink)}
 .hshint{margin-top:14px;background:#eef4ff;border:1px solid #cfe0fb;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#2c4a7c;line-height:1.6}
+.reccode{margin-top:10px;background:#fff;border:1.5px dashed #9db8e8;border-radius:10px;padding:10px;text-align:center}
+.reccode-label{font-size:11px;color:#5b76a8}
+.reccode-value{font-size:19px;font-weight:900;letter-spacing:.08em;color:var(--accent);margin-top:3px}
+.promote-box{margin-top:22px;padding-top:18px;border-top:2px dashed var(--line)}
+.promote-title{font-weight:800;font-size:14px;margin-bottom:6px}
 .passbox-label{font-size:12px;color:#8a6300;font-weight:700}
 .passbox-value{font-size:22px;font-weight:900;letter-spacing:.08em;color:#6b5416;margin-top:2px;word-break:break-all}
 </style>
@@ -133,6 +138,11 @@ function schoolYearEndJp(issuedIso){
   const y = d.getMonth() >= 3 ? d.getFullYear()+1 : d.getFullYear();
   return `${y}年3月31日`;
 }
+function schoolYearStartJp(issuedIso){
+  const d = issuedIso ? new Date(issuedIso) : new Date();
+  const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear()-1;
+  return `${y}年4月1日`;
+}
 
 let DEVICE_ID = localStorage.getItem('gks_device_id');
 if(!DEVICE_ID){ DEVICE_ID = crypto.randomUUID(); localStorage.setItem('gks_device_id', DEVICE_ID); }
@@ -143,6 +153,10 @@ const state = {
   form: { name:'', grade:'', className:'', attendanceNo:'', department:'', birthdate:'', photo:'', passcode:'' },
   submitting: false,
   err: '',
+  showRestore: false,
+  restoreCode: '',
+  restoreErr: '',
+  restoreBusy: false,
   admin: {
     pass: sessionStorage.getItem('gks_admin_pass') || '',
     list: null,
@@ -250,6 +264,27 @@ async function submitApply(){
 
 function retryApply(){ state.myStatus = null; state.err=''; render(); }
 
+function toggleRestore(){ state.showRestore = !state.showRestore; state.restoreErr=''; render(); }
+function onRestoreInput(val){ state.restoreCode = val; }
+async function submitRestore(){
+  const code = (state.restoreCode||'').trim();
+  if(!code){ state.restoreErr = 'コードを入力してください。'; render(); return; }
+  state.restoreBusy = true; state.restoreErr=''; render();
+  try{
+    const { data, error } = await sb.rpc('gakuseisho_restore', { p_recovery_code: code });
+    if(error) throw error;
+    DEVICE_ID = data.device_id;
+    localStorage.setItem('gks_device_id', DEVICE_ID);
+    state.showRestore = false; state.restoreCode = ''; state.restoreBusy = false;
+    await bootStudent();
+    return;
+  }catch(e){
+    state.restoreErr = (e && e.message) ? e.message : '復元に失敗しました。';
+  }
+  state.restoreBusy = false;
+  render();
+}
+
 function viewApplyForm(){
   const f = state.form;
   return `
@@ -301,11 +336,25 @@ function viewApplyForm(){
       <input type="password" value="${esc(f.passcode)}" oninput="onFormInput('passcode',this.value)" placeholder="先生から聞いた合言葉">
     </div>
     <button class="btn btn-primary" ${state.submitting?'disabled':''} onclick="submitApply()">${state.submitting?'送信中…':'申請する'}</button>
+  </div>
+  <div class="card">
+    <button class="btn btn-line btn-block" onclick="toggleRestore()">${state.showRestore?'閉じる':'別の端末の学生証をこの端末に復元する'}</button>
+    ${state.showRestore ? `
+      <div class="field" style="margin-top:14px">
+        <label>引き継ぎコード</label>
+        <input type="text" value="${esc(state.restoreCode)}" oninput="onRestoreInput(this.value)" placeholder="例）K7N2-QX9F" style="text-transform:uppercase">
+        <div class="hint">申請したときに表示された8文字のコードです。</div>
+      </div>
+      ${state.restoreErr ? `<div class="err">${esc(state.restoreErr)}</div>` : ''}
+      <button class="btn btn-primary btn-block" ${state.restoreBusy?'disabled':''} onclick="submitRestore()">${state.restoreBusy?'確認中…':'復元する'}</button>
+    ` : ''}
   </div>`;
 }
 
-function homeScreenHint(){
-  return `<div class="hshint">💡 この画面を閉じても大丈夫です。<b>同じスマホ・同じブラウザ</b>でこのページをもう一度開けば、いつでもここに戻ってきます。「ホーム画面に追加」しておくと、アイコンをタップするだけで開けて一番確実です。</div>`;
+function homeScreenHint(code){
+  return `<div class="hshint">💡 この画面を閉じても大丈夫です。<b>同じスマホ・同じブラウザ</b>でこのページをもう一度開けば、いつでもここに戻ってきます。「ホーム画面に追加」する場合は、追加したあとのアイコンから今すぐこのページを開き直してください。
+    ${code ? `<div class="reccode"><div class="reccode-label">🔑 引き継ぎコード（別の端末やアイコンで消えてしまったときに使います）</div><div class="reccode-value">${esc(code)}</div></div>` : ''}
+  </div>`;
 }
 
 function viewPendingCard(){
@@ -319,7 +368,7 @@ function viewPendingCard(){
     <p class="muted" style="margin-top:14px">先生が承認すると、この画面が学生証に切り替わります。</p>
     <button class="btn btn-line btn-block" onclick="bootStudent()">最新の状態を確認</button>
   </div>
-  ${homeScreenHint()}`;
+  ${homeScreenHint(m.recovery_code)}`;
 }
 
 function viewRejected(){
@@ -359,12 +408,12 @@ function viewIdCard(){
         ${m.department ? `<dt>所属</dt><dd>${esc(m.department)}</dd>` : ''}
         <dt>名前</dt><dd>${esc(m.name)}</dd>
         ${m.birthdate ? `<dt>生年月日</dt><dd>${fmtDateJp(m.birthdate)}</dd>` : ''}
-        <dt>学年組</dt><dd>${esc(m.grade||'')}${esc(m.class_name||'')}</dd>
+        <dt>学年</dt><dd>${esc(m.grade||'')}</dd>
         ${m.attendance_no ? `<dt>出席番号</dt><dd>${esc(m.attendance_no)}番</dd>` : ''}
       </dl>
     </div>
     <div class="datesrow">
-      <span>発行日　${fmtDateJp(m.approved_at)}</span>
+      <span>発行日　${schoolYearStartJp(m.approved_at)}</span>
       <span>有効期限　${schoolYearEndJp(m.approved_at)}まで</span>
     </div>
     <div class="issuer">
@@ -377,7 +426,7 @@ function viewIdCard(){
     <div class="livebar"><span class="dot"></span>本人確認用表示中 <span class="t" id="livetime">--:--:--</span></div>
   </div>
   <p class="muted center" style="margin-top:14px">この画面を先生や職員に見せてください。（時計が動いていない画像は写真の可能性があります）</p>
-  ${homeScreenHint()}`;
+  ${homeScreenHint(m.recovery_code)}`;
 }
 
 let _clockTimer = null;
@@ -491,6 +540,17 @@ async function adminRevoke(id){
     const { error } = await sb.rpc('gakuseisho_admin_revoke', { p_admin_pass: state.admin.pass, p_id: id });
     if(error) throw error;
   }catch(e){ alert('操作に失敗しました: ' + (e.message||e)); }
+  await loadAdminList();
+}
+
+async function adminPromote(){
+  if(!confirm('進級処理を行います。\n・1年→2年、2年→3年に変更されます\n・現在の3年は「無効」になります（卒業扱い）\nこの操作は元に戻せません。よろしいですか？')) return;
+  state.admin.busy = true; render();
+  try{
+    const { data, error } = await sb.rpc('gakuseisho_admin_promote', { p_admin_pass: state.admin.pass });
+    if(error) throw error;
+    alert(`進級処理が完了しました。\n卒業（無効化）: ${data.graduated}人\n3年に進級: ${data.promoted_to_3}人\n2年に進級: ${data.promoted_to_2}人`);
+  }catch(e){ alert('進級処理に失敗しました: ' + (e.message||e)); }
   await loadAdminList();
 }
 
@@ -703,6 +763,11 @@ function viewAdminDash(){
         <input type="password" value="${esc(f.new_admin_pass)}" oninput="onSettingsInput('new_admin_pass',this.value)" placeholder="新しいパスワード">
       </div>
       <button class="btn btn-primary btn-block" ${state.admin.busy?'disabled':''} onclick="saveSettings()">保存する</button>
+      <div class="promote-box">
+        <div class="promote-title">年度更新（進級処理）</div>
+        <p class="hint">3月末〜4月に1回、この操作をしてください。1年→2年、2年→3年に進級し、現在の3年は卒業として無効になります。</p>
+        <button class="btn btn-danger btn-block" ${state.admin.busy?'disabled':''} onclick="adminPromote()">進級処理を実行する</button>
+      </div>
     ` : `<p class="muted center">読み込み中…</p>`;
   }
 
