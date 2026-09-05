@@ -83,7 +83,6 @@ h2{font-size:17px;margin:0 0 12px}
 .idcard .issuer .row>span:first-child{flex:none;width:46px;color:var(--sub)}
 .idcard .issuer .row>span:last-child{flex:1;color:var(--ink);font-weight:700}
 .idcard .issuer .row.principal .pname{position:relative;display:inline-flex;align-items:center;gap:8px}
-.idcard .seal{display:inline-flex;flex:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:1.6px solid #c0392b;color:#c0392b;font-size:10px;font-weight:900;transform:rotate(-8deg);opacity:.85;letter-spacing:-1px}
 .idcard .foot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 16px;font-size:12px;color:var(--sub);border-top:1px dashed var(--line);margin:0 16px}
 .idcard .no{font-weight:800;color:var(--ink);letter-spacing:.04em}
 
@@ -430,7 +429,7 @@ function viewIdCard(){
       <div class="row"><span>所在地</span><span>${school.address ? esc(school.address) : '-'}</span></div>
       <div class="row"><span>学校名</span><span>${esc(school.name)}</span></div>
       <div class="row"><span>電話</span><span>${school.phone ? esc(school.phone) : '-'}</span></div>
-      <div class="row principal"><span>校長名</span><span class="pname">${school.principal ? esc(school.principal) : '-'}${school.principal ? `<span class="seal">校長印</span>` : ''}</span></div>
+      <div class="row principal"><span>校長名</span><span class="pname">${school.principal ? esc(school.principal) : '-'}</span></div>
     </div>
     <div class="livebar"><span class="dot"></span>本人確認用表示中 <span class="t" id="livetime">--:--:--</span></div>
   </div>
