@@ -544,12 +544,12 @@ async function adminRevoke(id){
 }
 
 async function adminPromote(){
-  if(!confirm('進級処理を行います。\n・1年→2年、2年→3年に変更されます\n・現在の3年は「無効」になります（卒業扱い）\nこの操作は元に戻せません。よろしいですか？')) return;
+  if(!confirm('進級処理を行います。\n・1年→2年、2年→3年に変更されます\n・クラス替えに備えて、進級した生徒の「組」はいったん未設定に戻ります（承認済み一覧の「組を編集」から設定し直してください）\n・現在の3年は「無効」になります（卒業扱い）\nこの操作は元に戻せません。よろしいですか？')) return;
   state.admin.busy = true; render();
   try{
     const { data, error } = await sb.rpc('gakuseisho_admin_promote', { p_admin_pass: state.admin.pass });
     if(error) throw error;
-    alert(`進級処理が完了しました。\n卒業（無効化）: ${data.graduated}人\n3年に進級: ${data.promoted_to_3}人\n2年に進級: ${data.promoted_to_2}人`);
+    alert(`進級処理が完了しました。\n卒業（無効化）: ${data.graduated}人\n3年に進級: ${data.promoted_to_3}人\n2年に進級: ${data.promoted_to_2}人\n\n進級した生徒の組は未設定になっています。承認済み一覧から組を設定し直してください。`);
   }catch(e){ alert('進級処理に失敗しました: ' + (e.message||e)); }
   await loadAdminList();
 }
@@ -646,9 +646,21 @@ function viewAdminLogin(){
 
 function studentCardMini(s){
   const photo = s.photo ? `<img src="${s.photo}">` : `<img style="background:#eceff5">`;
-  const cls = [s.grade, s.class_name].filter(Boolean).join('');
+  const clsText = s.class_name || '組未設定';
+  const cls = [s.grade, clsText].filter(Boolean).join('');
   const no = s.attendance_no ? `${s.attendance_no}番` : '';
   return `${photo}<div class="meta"><div class="n">${esc(s.name)}</div><div class="s">${esc([cls,no].filter(Boolean).join(' '))}・${fmtDate(s.created_at)}申請</div></div>`;
+}
+
+async function adminEditClass(id, currentClass){
+  const v = prompt('組を入力してください（例：3組。空欄で未設定に戻せます）', currentClass || '');
+  if(v === null) return;
+  state.admin.busy = true; render();
+  try{
+    const { error } = await sb.rpc('gakuseisho_admin_set_class', { p_admin_pass: state.admin.pass, p_id: id, p_class_name: v });
+    if(error) throw error;
+  }catch(e){ alert('変更に失敗しました: ' + (e.message||e)); }
+  await loadAdminList();
 }
 
 function adminSetFilter(key, val){ state.admin[key] = val; if(key==='filterGrade') state.admin.filterClass=''; render(); }
@@ -697,6 +709,7 @@ function viewAdminDash(){
         ${studentCardMini(s)}
         <div class="actions">
           <span class="muted" style="font-size:12px;text-align:center">No.${s.student_no}</span>
+          <button class="btn btn-sm btn-line" onclick="adminEditClass('${s.id}','${esc(s.class_name||'')}')">組を編集</button>
           <button class="btn btn-sm btn-gray" onclick="adminRevoke('${s.id}')">無効にする</button>
         </div>
       </div>`).join('') : `<p class="muted center">承認済みの生徒はいません。</p>`);

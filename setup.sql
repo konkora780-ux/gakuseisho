@@ -213,15 +213,25 @@ begin
     where status = 'approved' and grade = '3年';
   get diagnostics v_graduated = row_count;
 
-  update public.gakuseisho_students set grade = '3年', approved_at = v_new_year_start
+  update public.gakuseisho_students set grade = '3年', class_name = null, approved_at = v_new_year_start
     where status = 'approved' and grade = '2年';
   get diagnostics v_promoted3 = row_count;
 
-  update public.gakuseisho_students set grade = '2年', approved_at = v_new_year_start
+  update public.gakuseisho_students set grade = '2年', class_name = null, approved_at = v_new_year_start
     where status = 'approved' and grade = '1年';
   get diagnostics v_promoted2 = row_count;
 
   return jsonb_build_object('graduated', v_graduated, 'promoted_to_3', v_promoted3, 'promoted_to_2', v_promoted2);
+end; $$;
+
+-- 管理: 生徒の組を修正（クラス替え・進級処理後の再設定用）
+create or replace function public.gakuseisho_admin_set_class(p_admin_pass text, p_id uuid, p_class_name text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if p_admin_pass is distinct from (select admin_pass from public.gakuseisho_settings where id = 1) then
+    raise exception 'パスワードが違います';
+  end if;
+  update public.gakuseisho_students set class_name = nullif(trim(p_class_name), '') where id = p_id;
 end; $$;
 
 -- 管理: 現在の設定を見る（学校名・住所・電話・校章・合言葉・管理者パスワードの確認用）
@@ -271,6 +281,7 @@ revoke all on function public.gakuseisho_admin_approve(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_reject(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_revoke(text,uuid) from public;
 revoke all on function public.gakuseisho_admin_promote(text) from public;
+revoke all on function public.gakuseisho_admin_set_class(text,uuid,text) from public;
 revoke all on function public.gakuseisho_admin_get_settings(text) from public;
 revoke all on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) from public;
 
@@ -283,5 +294,6 @@ grant execute on function public.gakuseisho_admin_approve(text,uuid) to anon, au
 grant execute on function public.gakuseisho_admin_reject(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_revoke(text,uuid) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_promote(text) to anon, authenticated;
+grant execute on function public.gakuseisho_admin_set_class(text,uuid,text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_get_settings(text) to anon, authenticated;
 grant execute on function public.gakuseisho_admin_update_settings(text,text,text,text,text,text,text,text,int,int,int) to anon, authenticated;
